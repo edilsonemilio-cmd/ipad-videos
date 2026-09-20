@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Videos">
+  <title>Videos</title>
+  <style>
+    html, body { margin: 0; background: #0c0c0c; color: #f3f0ea; font-family: Georgia, "Times New Roman", serif; }
+    #topo { padding: 18px 16px 8px; overflow: hidden; }
+    h1 { float: left; margin: 0; font-size: 20px; letter-spacing: 3px; font-weight: normal; color: #cfc6b8; }
+    #aleatorio {
+      float: right;
+      background: #cfc6b8;
+      color: #111;
+      border: 0;
+      padding: 8px 14px;
+      font-size: 15px;
+      font-family: Helvetica, Arial, sans-serif;
+    }
+    #grade { padding: 8px 10px 24px; }
+    .card {
+      display: inline-block;
+      width: 46%;
+      margin: 2%;
+      vertical-align: top;
+      background: #1a1916;
+      min-height: 150px;
+    }
+    .card img { width: 100%; height: 160px; display: block; background: #222; border: 0; }
+    .card .nome {
+      display: block;
+      padding: 10px 10px 12px;
+      font-size: 16px;
+      line-height: 1.3;
+    }
+    .card .fake {
+      height: 160px;
+      background: #2a2620;
+      color: #cfc6b8;
+      font-size: 18px;
+      text-align: center;
+      padding-top: 58px;
+    }
+    #playerbox {
+      display: none;
+      position: fixed;
+      top: 0; right: 0; bottom: 0; left: 0;
+      background: #000;
+      z-index: 9;
+    }
+    #playerbox.on { display: block; }
+    #voltar {
+      position: absolute; top: 8px; left: 10px; z-index: 10;
+      color: #cfc6b8; text-decoration: none; font-family: Helvetica, Arial, sans-serif; font-size: 16px;
+      background: rgba(0,0,0,0.5); padding: 6px 10px; border: 0;
+    }
+    #pnome {
+      position: absolute; top: 8px; right: 10px; color: #aaa;
+      font-family: Helvetica, Arial, sans-serif; font-size: 14px;
+    }
+    video { width: 100%; height: 100%; background: #000; }
+  </style>
+</head>
+<body>
+  <div id="topo">
+    <h1>VIDEOS</h1>
+    <button type="button" id="aleatorio">Aleatorio</button>
+  </div>
+  <div id="grade">Abrindo lista...</div>
+
+  <div id="playerbox">
+    <button type="button" id="voltar">Voltar</button>
+    <div id="pnome"></div>
+    <video id="vid" controls playsinline webkit-playsinline></video>
+  </div>
+
+  <script>
+    var lista = [];
+    var ultimo = -1;
+    var modoAleatorio = false;
+
+    function bonito(s) {
+      s = (s || '').replace(/^.*\//, '').replace(/\.[^.]+$/, '');
+      s = s.replace(/[_-]+/g, ' ');
+      var p = s.split(' '), i, o = [];
+      for (i = 0; i < p.length; i++) {
+        if (!p[i]) continue;
+        o.push(p[i].charAt(0).toUpperCase() + p[i].substr(1));
+      }
+      return o.join(' ');
+    }
+
+    function getJSON(url, ok) {
+      var x = new XMLHttpRequest();
+      x.open('GET', url, true);
+      x.onreadystatechange = function () {
+        if (x.readyState === 4 && x.status === 200) {
+          try { ok(JSON.parse(x.responseText)); } catch (e) {}
+        }
+      };
+      x.send(null);
+    }
+
+    function tituloDe(v) {
+      return v.titulo ? v.titulo : bonito(v.arquivo);
+    }
+
+    function sorteia() {
+      if (lista.length === 1) return 0;
+      var n, t = 0;
+      do { n = Math.floor(Math.random() * lista.length); t++; }
+      while (n === ultimo && t < 20);
+      return n;
+    }
+
+    function tocar(i) {
+      if (i < 0 || i >= lista.length) return;
+      ultimo = i;
+      var v = lista[i];
+      var box = document.getElementById('playerbox');
+      var vid = document.getElementById('vid');
+      document.getElementById('pnome').innerHTML = tituloDe(v);
+      vid.src = v.arquivo;
+      box.className = 'on';
+      vid.play();
+    }
+
+    document.getElementById('voltar').onclick = function () {
+      modoAleatorio = false;
+      var vid = document.getElementById('vid');
+      vid.pause();
+      document.getElementById('playerbox').className = '';
+    };
+
+    document.getElementById('aleatorio').onclick = function () {
+      if (!lista.length) return;
+      modoAleatorio = true;
+      tocar(sorteia());
+    };
+
+    document.getElementById('vid').onended = function () {
+      if (modoAleatorio && lista.length) tocar(sorteia());
+    };
+
+    getJSON('videos.json', function (data) {
+      lista = data || [];
+      var g = document.getElementById('grade');
+      g.innerHTML = '';
+      var i;
+      for (i = 0; i < lista.length; i++) {
+        (function (idx) {
+          var v = lista[idx];
+          var d = document.createElement('div');
+          d.className = 'card';
+          var nome = tituloDe(v);
+          if (v.capa) {
+            d.innerHTML = '<img src="' + v.capa + '" alt=""><span class="nome">' + nome + '</span>';
+          } else {
+            d.innerHTML = '<div class="fake">' + nome + '</div><span class="nome">' + nome + '</span>';
+          }
+          d.onclick = function () {
+            modoAleatorio = false;
+            tocar(idx);
+          };
+          g.appendChild(d);
+        })(i);
+      }
+      if (!lista.length) g.innerHTML = 'Nenhum video na lista.';
+    });
+  </script>
+</body>
+</html>
